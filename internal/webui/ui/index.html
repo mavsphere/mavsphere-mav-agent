@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>MAVSphere Agent — Config</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body { margin: 0; padding: 24px; background: #0b1220; color: #e8eefc; }
+    .card { max-width: 980px; margin: 0 auto; background: #111b2f; border: 1px solid #1f2b45; border-radius: 16px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,.3); }
+    h1 { margin: 0 0 12px; font-size: 22px; }
+    h2 { font-size: 16px; margin: 24px 0 12px; color: #9fb4ff; }
+    h3 { margin: 16px 0 8px; }
+    label { display: block; margin: 10px 0 4px; font-size: 13px; color: #b6c6ff; }
+    input, select, textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #23365e; background: #0e1830; color: #e8eefc; }
+    textarea { min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .actions { margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #2d4780; background: #1a2b52; color: #e8eefc; cursor: pointer; }
+    button.primary { background: #2e5aff; border-color: #2e5aff; }
+    button[disabled] { opacity: .6; cursor: not-allowed; }
+    .muted { color: #a9b6d7; font-size: 12px; }
+    .ok { color: #7cf58a; }
+    .warn { color: #ffd26b; }
+    .err { color: #ff8b8b; }
+    .pill { padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #2d4780; background: #0e1830; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; background:#0b1a33; border:1px solid #21365f; padding:1px 6px; border-radius:6px; }
+    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .help code { display:block; white-space: pre-wrap; background:#0b1a33; border:1px solid #21365f; padding:10px; border-radius:10px; }
+    .hint { margin-top: 6px; font-size: 12px; color: #a9b6d7; }
+
+    .test-toolbar {
+      margin-top: 16px;
+      padding: 12px 14px;
+      background: #0e1a2e;
+      border: 1px dashed #2d4780;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .test-toolbar .tb-label {
+      font-size: 11px;
+      color: #7b8fb5;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      white-space: nowrap;
+    }
+    .test-toolbar button { padding: 7px 13px; font-size: 13px; }
+    .test-toolbar button.arm   { background: #1e4a1e; border-color: #2d7a2d; color: #7cf58a; }
+    .test-toolbar button.disarm { background: #4a1e1e; border-color: #7a2d2d; color: #ff8b8b; }
+    .test-toolbar select { width: auto; padding: 7px 10px; font-size: 13px; }
+    #tbResult { font-size: 12px; color: #a9b6d7; margin-left: 4px; }
+
+    .legal-banner {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid #4b3d16;
+      background: #20170a;
+      color: #ffdf9f;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .legal-banner strong {
+      color: #ffe9b8;
+    }
+    .legal-banner a {
+      color: #ffd26b;
+      text-decoration: underline;
+      font-weight: 600;
+    }
+    .legal-banner .legal-link {
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    .legal-banner ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+    .legal-banner li {
+      margin: 4px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>MAVSphere Agent — Configuration</h1>
+    <p class="muted">Edit settings, check link status, and restart the agent in one click.</p>
+
+    <div class="legal-banner" role="note" aria-label="Operator notice">
+      <strong>Operator notice:</strong>
+      Use of this agent remains subject to the MavSphere platform Terms of Service, Acceptable Use Policy, and any applicable Operator or Revenue Terms accepted in the main MavSphere interface.
+      The local operator remains solely responsible for lawful operation and supervision of any vehicle or equipment on land, in the air, or on water, including site or land permission, manual override capability, fail-safe configuration, and any local takeover or shutdown process.
+      The MavSphere platform and this agent relay control messages only and must not be relied upon as a safety system or emergency-stop mechanism.
+
+      <ul>
+        <li><strong>Mode change:</strong> switching to <strong>HOLD</strong> will stop the vehicle and block all remote commands including RC override — this is the most reliable software intervention. Switching to <strong>MANUAL</strong> gives direct RC control, but if RC override is enabled the agent can still send inputs in MANUAL mode; use HOLD or disarm for a clean stop. Attitude and velocity commands only function in GUIDED mode and are silently ignored in any other mode.</li>
+        <li><strong>Network loss:</strong> if Wi-Fi, LTE, Ethernet, or any other communication path drops, control or stop messages may be delayed or may never reach the vehicle.</li>
+        <li><strong>Failsafe behaviour:</strong> the vehicle may instead follow its own firmware, autopilot, or ESC failsafe behaviour rather than any command sent through MavSphere.</li>
+      </ul>
+
+      <div class="legal-link">
+        Review full platform terms: <a id="legalLink" href="/legal" target="_blank" rel="noopener noreferrer">/legal</a>
+      </div>
+    </div>
+
+    <!-- STATUS -->
+    <h2>Status</h2>
+
+    <div id="degradedBanner" style="display:none;margin-bottom:12px;padding:12px 16px;background:#2a1010;border:1px solid #ff6b6b;border-radius:10px;color:#ff8b8b;font-size:13px;line-height:1.6;">
+      <strong>⚠ Agent error</strong><br>
+      <span id="degradedMsg"></span>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div><span class="pill">Endpoint</span> <span id="stEndpoint">—</span></div>
+        <div><span class="pill">Heartbeat</span> <span id="stHB">—</span></div>
+        <div><span class="pill">Last msg</span> <span id="stMsgAge">—</span></div>
+        <div><span class="pill">Mode</span> <span id="stMode">—</span></div>
+        <div><span class="pill">Armed</span> <span id="stArmed">—</span></div>
+      </div>
+      <div>
+        <button id="btnProbe" title="Read SYSID_MYGCS using PARAM_REQUEST_READ">Run control-path check</button>
+        <div id="probeResult" class="muted">—</div>
+      </div>
+    </div>
+
+    <!-- TEST TOOLBAR (remove before production) -->
+    <div class="test-toolbar" title="Dev-only: sends MAVLink commands directly from the browser">
+      <span class="tb-label">🛠 Test</span>
+      <button class="arm" id="btnArm">ARM</button>
+      <button class="disarm" id="btnDisarm">DISARM</button>
+      <span class="tb-label" style="margin-left:6px;">Mode →</span>
+      <select id="tbMode">
+        <option value="MANUAL">MANUAL</option>
+        <option value="STEERING">STEERING</option>
+        <option value="GUIDED">GUIDED</option>
+        <option value="HOLD">HOLD</option>
+        <option value="AUTO">AUTO</option>
+        <option value="RTL">RTL</option>
+        <option value="ACRO">ACRO</option>
+      </select>
+      <button id="btnSetMode">Set Mode</button>
+      <span id="tbResult">—</span>
+    </div>
+
+    <!-- BASICS -->
+    <h2>Basics</h2>
+    <div class="row">
+      <div>
+        <label for="mavId">MAV ID</label>
+        <input id="mavId" placeholder="1" />
+        <div class="hint">Your vehicle's ID from the <a href="https://mavsphere.com/manage-mavs" target="_blank" rel="noopener noreferrer" style="color:#9fb4ff;">Manage MAVs</a> page. Not the MAVLink system ID.</div>
+      </div>
+      <div>
+        <label for="agentGcsId">Agent GCS ID (1..255)</label>
+        <input id="agentGcsId" type="number" min="1" max="255" placeholder="252" />
+        <div class="hint">Must match <span class="kbd">SYSID_MYGCS</span> set in your ArduPilot parameters. Default is 252.</div>
+      </div>
+    </div>
+
+    <!-- BACKEND -->
+    <h2>Backend (Auth & WS)</h2>
+    <div class="row">
+      <div>
+        <label for="backendUrl">Backend URL (HTTP)</label>
+        <input id="backendUrl" placeholder="http://localhost:8080" />
+        <div class="hint">e.g. <span class="kbd">https://mavsphere.com</span> in production.</div>
+      </div>
+      <div>
+        <label for="backendWsUrl">Backend WS URL (STOMP)</label>
+        <input id="backendWsUrl" placeholder="ws://localhost:8080/api/ws/agent" />
+        <div class="hint">e.g. <span class="kbd">wss://mavsphere.com/api/ws/agent</span></div>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="janusUrl">Janus WS URL (WebRTC gateway)</label>
+        <input id="janusUrl" placeholder="ws://localhost:8188/janus" />
+        <div class="hint">e.g. <span class="kbd">wss://mavsphere.com/janus</span></div>
+      </div>
+      <div>
+        <!-- spacer -->
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="username">Username</label>
+        <input id="username" autocomplete="username" />
+      </div>
+      <div>
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" />
+      </div>
+    </div>
+
+    <!-- AUDIO -->
+    <h2>Audio</h2>
+    <div class="row">
+      <div>
+        <label for="audioDevice">Audio device (ALSA)</label>
+        <input id="audioDevice" placeholder="auto (e.g. hw:1,0)" />
+        <div class="hint">Leave blank to auto-detect. Use <span class="kbd">none</span> to disable audio.</div>
+      </div>
+      <div></div>
+    </div>
+
+    <!-- VIDEO -->
+    <h2>Video (janusvrwebrtcsink)</h2>
+    <div class="row">
+      <div>
+        <label for="videoDevice">Camera device</label>
+        <input id="videoDevice" placeholder="auto-detect (e.g. /dev/video0)" />
+        <div class="hint">
+          Leave blank to auto-detect the first compatible V4L2 capture device.
+          Set explicitly (e.g. <span class="kbd">/dev/video17</span>) if auto-detection
+          picks the wrong device — for example a hardware codec node instead of your
+          camera, or a loopback/virtual device. This setting is preserved on save.
+        </div>
+      </div>
+      <div></div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="videoResolution">Resolution</label>
+        <select id="videoResolution">
+          <option value="320x180">320×180 (180p)</option>
+          <option value="640x360">640×360 (360p)</option>
+          <option value="854x480">854×480 (480p)</option>
+          <option value="960x540">960×540 (540p)</option>
+          <option value="1280x720">1280×720 (720p)</option>
+          <option value="1920x1080">1920×1080 (1080p)</option>
+        </select>
+        <div class="hint">These are 16:9 sizes that typically negotiate cleanly with USB webcams, VP8, and WebRTC.</div>
+      </div>
+      <div>
+        <label for="videoFps">Frame rate (FPS)</label>
+        <select id="videoFps">
+          <option value="5">5</option>
+          <option value="10">10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+          <option value="24">24</option>
+          <option value="30">30</option>
+        </select>
+        <div class="hint">Higher FPS increases CPU and bandwidth. For mobile links, 10–15 FPS is usually best.</div>
+      </div>
+    </div>
+    <h3>Connectivity (ICE)</h3>
+    <div class="row">
+      <div>
+        <label for="forceRelay">Force relay (TURN) override</label>
+        <select id="forceRelay">
+          <option value="">Auto (use backend/config)</option>
+          <option value="true">Force relay (TURN only)</option>
+          <option value="false">Force all (allow STUN/direct)</option>
+        </select>
+        <div class="hint">
+          Auto follows backend <span class="kbd">forceRelay</span>. Use Force relay if you must go through TURN.
+        </div>
+      </div>
+      <div>
+        <label for="preferMjpg">Prefer MJPG from camera</label>
+        <select id="preferMjpg">
+          <option value="true">true (recommended for many USB webcams)</option>
+          <option value="false">false</option>
+        </select>
+        <div class="hint">
+          Many USB cameras only offer 1080p30 via <span class="kbd">image/jpeg (MJPG)</span>. This enables JPEG capture + decode.
+        </div>
+      </div>
+    </div>
+    <details id="advancedVideo" style="margin-top:14px">
+      <summary style="cursor:pointer; color:#9fb4ff; font-weight:600;">Advanced Video</summary>
+
+      <div style="margin-top:12px">
+        <div class="row">
+          <div>
+            <label for="videoCodec">Codec</label>
+            <select id="videoCodec">
+              <option value="vp8">VP8 (default)</option>
+              <option value="h264">H.264 (recommended on Raspberry Pi)</option>
+            </select>
+          </div>
+          <div id="h264BitrateWrap">
+            <label for="h264BitrateBps">H.264 bitrate (bps)</label>
+            <input id="h264BitrateBps" type="number" min="100000" step="100000" placeholder="1500000" />
+            <div class="hint">4G default: 1500000. Good 4G: 2200000. LAN: 3000000–5000000.</div>
+          </div>
+        </div>
+
+        <div id="h264Settings">
+          <div class="row">
+            <div>
+              <label for="h264Encoder">H.264 encoder</label>
+              <select id="h264Encoder">
+                <option value="auto">auto</option>
+                <option value="v4l2h264enc">v4l2h264enc (hardware)</option>
+                <option value="x264enc">x264enc (software fallback)</option>
+              </select>
+              <div class="hint">Leave on auto unless troubleshooting.</div>
+            </div>
+            <div></div>
+          </div>
+
+          <div id="h264ProfileWrap">
+            <label for="h264Profile">H.264 profile</label>
+            <select id="h264Profile">
+              <option value="baseline">Baseline (most compatible)</option>
+              <option value="constrained-baseline">Constrained Baseline</option>
+              <option value="main">Main</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="webrtcBitrateSettings">
+          <div class="row">
+            <div>
+              <label for="webrtcStartBitrateBps">WebRTC start bitrate (bps)</label>
+              <input id="webrtcStartBitrateBps" type="number" min="50000" step="50000" placeholder="800000" />
+              <div class="hint">Startup target. Wi-Fi: 500000–800000. LAN: 1200000–2000000.</div>
+            </div>
+            <div>
+              <label for="webrtcMaxBitrateBps">WebRTC max bitrate (bps)</label>
+              <input id="webrtcMaxBitrateBps" type="number" min="50000" step="50000" placeholder="1500000" />
+              <div class="hint">Ceiling for sender.</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label for="webrtcMinBitrateBps">WebRTC min bitrate (bps)</label>
+              <input id="webrtcMinBitrateBps" type="number" min="50000" step="50000" placeholder="150000" />
+              <div class="hint">Floor when link degrades.</div>
+            </div>
+            <div></div>
+          </div>
+
+          <div class="hint">
+            These are used with VP8 and with H.264 when using software encoder. With <span class="kbd">v4l2h264enc</span>, the agent disables GCC/bitrate properties.
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- MAVLINK -->
+    <h2>MAVLink Connection</h2>
+    <div class="hint">
+      <div><b>Recommended (Raspberry Pi default installer)</b></div>
+      <div class="muted">
+        If you used <span class="kbd">setup_pi.sh</span>, MAVProxy runs on the host and forwards MAVLink to the agent over UDP loopback.
+        Set this to <span class="kbd">udp:127.0.0.1:14600</span>.
+        This works because the agent container uses <span class="kbd">network_mode: host</span> so it can receive host UDP packets.
+      </div>
+    </div>
+    <div>
+      <label for="connType">Connection Type</label>
+      <select id="connType">
+        <option value="udp">UDP via MAVProxy (MAVProxy pushes to agent)</option>
+        <option value="tcp">TCP to SITL/FC (agent dials)</option>
+        <option value="serial">Direct Serial</option>
+      </select>
+    </div>
+
+    <div id="ipFields" class="row" style="margin-top:10px">
+      <div>
+        <label for="ipHost">Host</label>
+        <input id="ipHost" placeholder="127.0.0.1" />
+      </div>
+      <div>
+        <label for="ipPort">Port</label>
+        <input id="ipPort" type="number" placeholder="14600" />
+      </div>
+    </div>
+
+    <div id="serialFields" class="row" style="display:none; margin-top:10px">
+      <div>
+        <label for="serDev">Serial Device</label>
+        <input id="serDev" placeholder="/dev/ttyACM0" />
+      </div>
+      <div>
+        <label for="serBaud">Baud</label>
+        <input id="serBaud" type="number" placeholder="57600" />
+      </div>
+    </div>
+
+    <div id="connStringPreview" class="hint" style="margin-top:8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; color:#7cf58a; background:#0b1a33; border:1px solid #21365f; padding:8px 12px; border-radius:8px;">
+      →&nbsp;<span id="connStringValue"></span>
+    </div>
+
+    <h3>Telemetry privacy</h3>
+    <div class="row">
+      <div>
+        <label for="includeGpsCoords">Send GPS coordinates (lat/lon) in telemetry</label>
+        <select id="includeGpsCoords">
+          <option value="true">true</option>
+          <option value="false">false (privacy mode)</option>
+        </select>
+        <div class="hint">When false, the UI/backend still receives altitude and other telemetry, but not coordinates.</div>
+      </div>
+      <div></div>
+    </div>
+
+    <h3>Control feature gates</h3>
+    <div class="row" style="margin-bottom:12px">
+      <div>
+        <label for="allowControl">Allow Control</label>
+        <select id="allowControl">
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+        <div class="hint">Master gate. When false, all control commands from MavSphere are rejected.</div>
+      </div>
+      <div></div>
+    </div>
+    <div class="row3">
+      <div>
+        <label for="allowGoto">Allow Go-to (GUIDED)</label>
+        <select id="allowGoto">
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+        <div class="hint">Enables map click / go-to style position control.</div>
+      </div>
+      <div>
+        <label for="allowRcOverride">Allow RC override</label>
+        <select id="allowRcOverride">
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+        <div class="hint">Enables RC_CHANNELS_OVERRIDE-based control. <strong>Important:</strong> when enabled, the agent can send inputs in MANUAL mode as well as GUIDED — MANUAL is not a clean intervention if this is on. Use HOLD or disarm to guarantee all remote commands stop.</div>
+      </div>
+      <div>
+        <label for="allowAircraftControl">Allow aircraft-like control</label>
+        <select id="allowAircraftControl">
+          <option value="false">false (recommended)</option>
+          <option value="true">true</option>
+        </select>
+        <div class="hint">Safety gate: control is denied for aircraft-like vehicles unless enabled.</div>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="thrustMode">Thrust mode (rover/ground vehicles)</label>
+        <select id="thrustMode">
+          <option value="THRUST_FWD_REV">THRUST_FWD_REV (forward + reverse)</option>
+          <option value="THRUST_FWD_ONLY">THRUST_FWD_ONLY (forward only)</option>
+        </select>
+        <div class="hint">
+          Picks the rover throttle intent model used for VELOCITY control + RC mapping. If unsure, start with
+          <span class="kbd">THRUST_FWD_REV</span>.
+        </div>
+      </div>
+      <div></div>
+    </div>
+
+    <!-- SAFETY / FAILSAFE -->
+    <h2>Safety (Control Failsafe)</h2>
+    <p class="muted">
+      Dead-man switch: if the agent stops receiving control messages, it will actively command a stop/neutral.
+      This helps prevent "stuck" throttle/steering if the browser closes, the network drops, or a WebSocket stalls.
+    </p>
+    <div class="row">
+      <div>
+        <label for="fsControlTimeoutMs">Control timeout (ms)</label>
+        <input id="fsControlTimeoutMs" type="number" min="100" max="5000" step="50" placeholder="450" />
+        <div class="hint">If no control messages are seen for this long, the agent sends a stop/neutral command.</div>
+      </div>
+      <div>
+        <label for="fsReissueStopMs">Re-issue stop every (ms)</label>
+        <input id="fsReissueStopMs" type="number" min="100" max="5000" step="50" placeholder="500" />
+        <div class="hint">While stale, the agent keeps asserting a stop at this interval.</div>
+      </div>
+    </div>
+
+    <h3>RC Override stop values (PWM)</h3>
+    <div class="row">
+      <div>
+        <label for="fsThrottleStopPwm">Throttle stop PWM</label>
+        <select id="fsThrottleStopPwm">
+          <option value="1500">1500 (center / reverse supported)</option>
+          <option value="1000">1000 (min / forward-only / subs)</option>
+          <option value="1100">1100</option>
+          <option value="1200">1200</option>
+          <option value="1300">1300</option>
+          <option value="1400">1400</option>
+          <option value="1550">1550</option>
+          <option value="1600">1600</option>
+        </select>
+        <div class="hint">Rover with reverse: 1500. Boat forward-only: 1000. Sub/ROV thrusters: usually 1500 or 1000 depending on ESC calibration.</div>
+      </div>
+      <div>
+        <label for="fsSteerStopPwm">Steering stop PWM</label>
+        <select id="fsSteerStopPwm">
+          <option value="1500">1500 (center)</option>
+          <option value="1520">1520</option>
+          <option value="1480">1480</option>
+        </select>
+        <div class="hint">Most steering servos are neutral at 1500.</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btnSaveRestart" class="primary">Save & Restart Agent</button>
+      <span id="status" class="muted"></span>
+    </div>
+
+    <!-- HELP -->
+    <h2>Connectivity Help</h2>
+    <div class="help">
+
+      <div style="margin-bottom:20px; padding:14px; background:#0d2a18; border:1px solid #1a5c30; border-radius:12px;">
+        <div style="font-size:14px; font-weight:600; color:#7cf58a; margin-bottom:8px;">&#x1F680; New here? Start with the one-line installer</div>
+        <p class="muted" style="margin:0 0 8px;">If you are connecting a Raspberry Pi 4B and an ArduPilot flight controller to MavSphere for the first time, run this on the Pi:</p>
+        <code>curl -fsSL https://mavsphere.com/downloads/setup_pi.sh | sudo bash</code>
+        <p class="muted" style="margin:8px 0 0;">This installs Docker, MAVProxy, and the agent as systemd services that start on boot. Then come back here to set your MAV ID, username, password, and serial port (see steps below).</p>
+        <p class="muted" style="margin:8px 0 0;">For the full narrative setup guide including wiring diagrams, ArduPilot parameters, and troubleshooting: <a href="https://mavsphere.com/operators/setup" target="_blank" rel="noopener noreferrer" style="color:#7cf58a;">mavsphere.com/operators/setup</a></p>
+      </div>
+
+      <h3>Step 1 &#x2014; Which port is your flight controller on?</h3>
+      <p class="muted">Run this on the Pi with the flight controller plugged in and powered:</p>
+      <code>ls /dev/ttyACM* /dev/ttyUSB* /dev/ttyAMA* 2>/dev/null</code>
+      <p class="muted" style="margin-top:8px;">What you see tells you how it is connected:</p>
+      <ul>
+        <li><span class="kbd">/dev/ttyACM0</span> &#x2014; USB cable (Pixhawk, Cube, most modern FCs). Most common.</li>
+        <li><span class="kbd">/dev/ttyUSB0</span> &#x2014; USB via an FTDI adapter.</li>
+        <li><span class="kbd">/dev/ttyAMA0</span> &#x2014; GPIO UART (TX/RX pins wired to the Pi header). Needs UART enabled first.</li>
+      </ul>
+      <p class="muted">If nothing appears with USB plugged in, try a different cable. Many USB cables are charge-only and carry no data.</p>
+      <p class="muted">To enable the GPIO UART (<span class="kbd">ttyAMA0</span>) on <strong>Ubuntu</strong>: edit <span class="kbd">/boot/firmware/config.txt</span>, add <span class="kbd">enable_uart=1</span> and <span class="kbd">dtoverlay=disable-bt</span>, then disable the serial console with <span class="kbd">sudo systemctl disable serial-getty@ttyAMA0.service</span> and reboot. On <strong>Raspberry Pi OS</strong>: use <span class="kbd">sudo raspi-config</span> &#x2192; Interface Options &#x2192; Serial Port &#x2192; disable login shell, enable hardware.</p>
+
+      <h3>Step 2 &#x2014; Tell MAVProxy which port to use</h3>
+      <p class="muted">The installer creates a MAVProxy systemd service. Edit it to match your port:</p>
+      <code>sudo nano /etc/systemd/system/mavproxy.service</code>
+      <p class="muted" style="margin-top:8px;">Find the <span class="kbd">--master=</span> argument and set it:</p>
+      <ul>
+        <li>USB FC: <span class="kbd">--master=/dev/ttyACM0,57600</span></li>
+        <li>FTDI USB: <span class="kbd">--master=/dev/ttyUSB0,57600</span></li>
+        <li>GPIO UART: <span class="kbd">--master=/dev/ttyAMA0,57600</span></li>
+      </ul>
+      <code>sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart mavproxy</code>
+      <p class="muted" style="margin-top:8px;">Check it is working &#x2014; you should see heartbeat lines every second:</p>
+      <code>sudo journalctl -u mavproxy -f</code>
+
+      <h3>Step 3 &#x2014; MAVLink connection setting (this page)</h3>
+      <p class="muted">If you used <span class="kbd">setup_pi.sh</span>, leave the connection type as <strong>UDP via MAVProxy</strong>, host <span class="kbd">127.0.0.1</span>, port <span class="kbd">14600</span>. This is the default and works for both USB and GPIO setups.</p>
+
+      <h3>Step 4 &#x2014; Set SYSID_MYGCS in ArduPilot</h3>
+      <p class="muted">ArduPilot only accepts GCS commands from a trusted system ID. The agent uses ID 252 by default.</p>
+      <code>param set SYSID_MYGCS 252
+param write</code>
+      <p class="muted" style="margin-top:8px;">You can do this in MAVProxy, QGroundControl, or Mission Planner connected to <span class="kbd">udp://&lt;pi-ip&gt;:14550</span>.</p>
+      <p class="muted"><strong>Rovers &#x2014; recommended failsafe params</strong> (vehicle stops if connection drops):</p>
+      <code>param set RC_OVERRIDE_TIME 0.5
+param set FS_THR_ENABLE 2
+param set FS_THR_VALUE 910
+param set FS_GCS_ENABLE 1
+param write</code>
+
+      <h3>Step 5 &#x2014; Verify</h3>
+      <p class="muted">Check the <strong>Status</strong> panel at the top of this page. Mode and Armed should update in real time. Then click <strong>Run control-path check</strong>.</p>
+      <ul>
+        <li>Mode updates &#x2014; MAVLink is flowing correctly.</li>
+        <li>Mode blank &#x2014; check MAVProxy is running and the port is correct.</li>
+        <li>Backend disconnected &#x2014; check MAV ID, username, and password above.</li>
+      </ul>
+
+      <hr style="border:none; border-top:1px solid #1f2b45; margin:20px 0;" />
+
+      <details>
+        <summary style="cursor:pointer; color:#9fb4ff; font-size:14px; font-weight:600; margin-bottom:8px;">Advanced / developer options</summary>
+
+        <h3>Default Pi MAVProxy command (equivalent to the systemd unit)</h3>
+        <code>mavproxy.py --master=/dev/serial0,57600 \
+  --out=udpin:0.0.0.0:14550 \
+  --out=udp:127.0.0.1:14600 \
+  --out=udpin:0.0.0.0:14602</code>
+        <p class="muted" style="margin-top:8px;">Port map:</p>
+        <ul>
+          <li><span class="kbd">14550</span> &#x2014; <strong>Remote GCS</strong> (QGC / Mission Planner on another machine). <span class="kbd">udpin:</span> means MAVProxy listens; the GCS connects to <span class="kbd">&lt;pi-ip&gt;:14550</span>. Accepts telemetry but only issues authoritative commands if <span class="kbd">SYSID_MYGCS=255</span> (QGC default).</li>
+          <li><span class="kbd">14600</span> &#x2014; <strong>Agent</strong>. <span class="kbd">udp:</span> means MAVProxy pushes to the agent; the agent listens on <span class="kbd">udp:0.0.0.0:14600</span>. Commands from the agent are accepted when <span class="kbd">SYSID_MYGCS=252</span>.</li>
+          <li><span class="kbd">14602</span> &#x2014; <strong>Spare remote GCS slot</strong>. Same behaviour as 14550 &#x2014; a second external tool can connect here.</li>
+        </ul>
+        <p class="muted">Note: <span class="kbd">udpin:</span> (MAVProxy listens, remote connects to it) vs <span class="kbd">udp:</span> (MAVProxy pushes, receiver just listens) is a meaningful distinction. The GCS ports use <span class="kbd">udpin:</span> so any tool on the network can connect without needing the Pi's IP in advance.</p>
+
+        <h3>SITL &#x2014; direct TCP (no MAVProxy, single client)</h3>
+        <ul><li>Agent config &#x2192; MAVLink: <span class="kbd">tcpclient:127.0.0.1:5760</span></li></ul>
+
+        <h3>SITL &#x2014; with MAVProxy fan-out</h3>
+        <code id="cmdSITLProxy">mavproxy.py --master=tcp:127.0.0.1:5760 \
+  --out=udp:127.0.0.1:14551 \
+  --out=udp:127.0.0.1:14550</code>
+        <p>Agent config &#x2192; MAVLink: <span class="kbd">udp:127.0.0.1:14551</span></p>
+
+        <h3>Real FC &#x2014; serial direct (bypasses MAVProxy)</h3>
+        <ul>
+          <li>Agent config &#x2192; MAVLink: <span class="kbd">serial:/dev/ttyACM0:57600</span></li>
+          <li>Add user to dialout: <code>sudo usermod -aG dialout $USER</code> (re-login required)</li>
+        </ul>
+
+        <h3>Real FC &#x2014; remote MAVProxy (FC on a different machine)</h3>
+        <code id="cmdLANProxy">mavproxy.py --master=serial:/dev/ttyACM0:57600 \
+  --out=udp:AGENT_IP:14551 \
+  --out=udp:GCS_IP:14550</code>
+        <p>Agent config &#x2192; MAVLink: <span class="kbd">udp:0.0.0.0:14551</span> (listen on all)</p>
+
+        <h3>Sanity checks</h3>
+        <ul>
+          <li><span class="kbd">sudo docker logs mavsphere-agent -f</span> &#x2014; should show heartbeat messages</li>
+          <li><span class="kbd">ss -lunp | grep -E '14550|14600|14602'</span></li>
+          <li><span class="kbd">sudo tcpdump -ni any udp port 14600</span></li>
+        </ul>
+      </details>
+
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const statusEl = $("status");
+    const serialFields = $("serialFields");
+    const ipFields = $("ipFields");
+
+    function setStatus(msg, cls="muted") {
+      statusEl.textContent = msg;
+      statusEl.className = cls;
+    }
+
+    function showFields(type) {
+      const isIP = (type === "udp" || type === "tcp");
+      ipFields.style.display = isIP ? "grid" : "none";
+      serialFields.style.display = type === "serial" ? "grid" : "none";
+      if (type === "udp") {
+        $("ipHost").placeholder = "0.0.0.0 (listen) or your LAN IP";
+        $("ipPort").placeholder = "14600";
+      } else if (type === "tcp") {
+        $("ipHost").placeholder = "127.0.0.1";
+        $("ipPort").placeholder = "5760";
+      }
+    }
+    $("connType").addEventListener("change", e => { showFields(e.target.value); updateConnStringPreview(); });
+
+    function parseMavlinkConnection(s) {
+      if (!s) return { type: "udp", host: "127.0.0.1", port: 14600 };
+      if (s.startsWith("udp:")) {
+        const addr = s.replace("udp:", "");
+        const [host, port] = addr.split(":");
+        return { type: "udp", host, port: Number(port || 14600) };
+      }
+      if (s.startsWith("udpclient:")) {
+        const [host, port] = s.replace("udpclient:", "").split(":");
+        return { type: "udp", host, port: Number(port || 14600) };
+      }
+      if (s.startsWith("tcpclient:")) {
+        const [host, port] = s.replace("tcpclient:", "").split(":");
+        return { type: "tcp", host, port: Number(port || 5760) };
+      }
+      if (s.startsWith("serial:")) {
+        const rest = s.replace("serial:", "");
+        const idx = rest.lastIndexOf(":");
+        if (idx > 0) return { type: "serial", dev: rest.slice(0, idx), baud: Number(rest.slice(idx + 1) || 57600) };
+        return { type: "serial", dev: rest, baud: 57600 };
+      }
+      return { type: "udp", host: "127.0.0.1", port: 14600 };
+    }
+
+    function buildMavlinkConnection({ type, host, port, dev, baud }) {
+      if (type === "udp") return `udp:${host || "0.0.0.0"}:${port || 14600}`;
+      if (type === "tcp") return `tcpclient:${host || "127.0.0.1"}:${port || 5760}`;
+      return `serial:${dev || "/dev/ttyACM0"}:${baud || 57600}`;
+    }
+
+    function defaultJanusFromBackend(backendUrl) {
+      try {
+        const u = new URL(backendUrl);
+        const wsScheme = (u.protocol === "https:") ? "wss:" : "ws:";
+        return `${wsScheme}//${u.host}/janus`;
+      } catch {
+        return "ws://localhost:8188/janus";
+      }
+    }
+
+    function updateLegalLink() {
+      const backendUrl = ($("backendUrl")?.value || "").trim();
+      const link = $("legalLink");
+      if (!link) return;
+      try {
+        const u = new URL(backendUrl);
+        const href = `${u.origin}/legal`;
+        link.href = href;
+        link.textContent = href;
+      } catch {
+        link.href = "/legal";
+        link.textContent = "/legal";
+      }
+    }
+
+    function updateVideoUI() {
+      const codecEl = $("videoCodec");
+      const encEl = $("h264Encoder");
+      if (!codecEl) return;
+
+      const codec = (codecEl.value || "vp8").toLowerCase();
+      const enc = (encEl?.value || "auto").toLowerCase();
+
+      const isH264 = (codec === "h264");
+      const isHWEnc = isH264 && (enc === "v4l2h264enc" || enc === "auto");
+
+      const h264Settings = $("h264Settings");
+      const h264BitrateWrap = $("h264BitrateWrap");
+      const h264ProfileWrap = $("h264ProfileWrap");
+      const webrtcBitrateSettings = $("webrtcBitrateSettings");
+
+      if (h264Settings) h264Settings.style.display = isH264 ? "block" : "none";
+      if (h264BitrateWrap) h264BitrateWrap.style.display = isH264 ? "block" : "none";
+      if (h264ProfileWrap) h264ProfileWrap.style.display = isH264 ? "block" : "none";
+      if (webrtcBitrateSettings) webrtcBitrateSettings.style.display = isHWEnc ? "none" : "block";
+    }
+
+    $("videoCodec").addEventListener("change", updateVideoUI);
+    $("h264Encoder").addEventListener("change", updateVideoUI);
+
+
+    // --- Dynamic camera & GStreamer capability discovery ---
+    let videoCaps = null;
+    let gstCaps = null;
+
+    function uniq(arr) { return Array.from(new Set(arr)); }
+
+    function setSelectOptions(selectEl, values, formatter) {
+      const cur = selectEl.value;
+      selectEl.innerHTML = "";
+      values.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = String(v);
+        opt.textContent = formatter ? formatter(v) : String(v);
+        selectEl.appendChild(opt);
+      });
+      if (values.map(String).includes(String(cur))) {
+        selectEl.value = cur;
+      }
+    }
+
+    function modesForPreference() {
+      if (!videoCaps || !videoCaps.caps || !videoCaps.caps.modes) return [];
+      const prefer = $("preferMjpg").value === "true";
+      const modes = videoCaps.caps.modes || [];
+      if (!prefer) return modes;
+
+      // If Prefer MJPG is enabled, we still include non-MJPG modes whose *resolution*
+      // is not available in MJPG, so the user can select valid 4:3 or niche sizes
+      // (e.g. 640x480) that the camera only exposes as YUYV/H264.
+      const mj = modes.filter(m => (m.pixFmt || "").toUpperCase() === "MJPG");
+      if (!mj.length) return modes;
+
+      const mjRes = new Set(mj.map(m => `${m.width}x${m.height}`));
+      const extra = modes.filter(m => !mjRes.has(`${m.width}x${m.height}`));
+      return mj.concat(extra);
+    }
+
+    function rebuildResolutionFromCaps() {
+      const modes = modesForPreference();
+      if (!modes.length) return;
+      const res = uniq(modes.map(m => `${m.width}x${m.height}`));
+      // sort by pixels asc
+      res.sort((a, b) => {
+        const [aw, ah] = a.split("x").map(Number);
+        const [bw, bh] = b.split("x").map(Number);
+        return (aw * ah) - (bw * bh);
+      });
+      setSelectOptions($("videoResolution"), res, v => v.replace("x", "×"));
+    }
+
+    function rebuildFpsFromCaps() {
+      const modes = modesForPreference();
+      if (!modes.length) return;
+      const [w, h] = ($("videoResolution").value || "").split("x").map(Number);
+      const m = modes.find(mm => mm.width === w && mm.height === h);
+      if (!m || !m.fps || !m.fps.length) return;
+      const fps = [...m.fps].sort((a, b) => a - b).map(String);
+      setSelectOptions($("videoFps"), fps, v => v);
+    }
+
+    function applyGstCapabilityGating() {
+      if (!gstCaps) return;
+
+      // Disable codec/encoder choices that cannot work.
+      const hasH264 = !!(gstCaps.v4l2h264enc || gstCaps.x264enc);
+      const hasVP8 = !!gstCaps.vp8enc;
+
+      // Codec select
+      const codecSel = $("videoCodec");
+      Array.from(codecSel.options).forEach(o => {
+        if (o.value === "h264") o.disabled = !hasH264;
+        if (o.value === "vp8") o.disabled = !hasVP8;
+      });
+
+      // H264 encoder select
+      const encSel = $("h264Encoder");
+      Array.from(encSel.options).forEach(o => {
+        if (o.value === "v4l2h264enc") o.disabled = !gstCaps.v4l2h264enc;
+        if (o.value === "x264enc") o.disabled = !gstCaps.x264enc;
+      });
+
+      // If current selection is now invalid, snap to something valid.
+      if (codecSel.value === "h264" && !hasH264) codecSel.value = "vp8";
+      if (codecSel.value === "vp8" && !hasVP8 && hasH264) codecSel.value = "h264";
+      if (encSel.value === "v4l2h264enc" && !gstCaps.v4l2h264enc) encSel.value = "x264enc";
+      if (encSel.value === "x264enc" && !gstCaps.x264enc) encSel.value = "auto";
+    }
+
+    async function loadVideoCaps() {
+      try {
+        const res = await fetch("/api/video/caps");
+        const data = await res.json().catch(() => ({}));
+        videoCaps = data;
+        gstCaps = data.gst || null;
+        applyGstCapabilityGating();
+
+        if (data.ok && data.caps && data.caps.modes) {
+          rebuildResolutionFromCaps();
+          rebuildFpsFromCaps();
+        }
+      } catch {
+        // ignore; UI falls back to static lists
+      }
+    }
+
+    $("preferMjpg").addEventListener("change", () => {
+      rebuildResolutionFromCaps();
+      rebuildFpsFromCaps();
+    });
+    $("videoResolution").addEventListener("change", rebuildFpsFromCaps);
+
+    async function loadConfig() {
+      setStatus("Loading…");
+      const res = await fetch("/api/config");
+      if (!res.ok) {
+        setStatus("Failed to load config", "err");
+        return;
+      }
+      const cfg = await res.json();
+
+      $("mavId").value = cfg.mavId ?? "1";
+      $("agentGcsId").value = cfg.agentGcsId ?? 252;
+      $("backendUrl").value = cfg.backendUrl ?? "http://localhost:8080";
+      updateLegalLink();
+      $("backendWsUrl").value = cfg.backendWsUrl ?? "ws://localhost:8080/api/ws/agent";
+      $("username").value = cfg.username ?? "";
+      $("password").value = cfg.password ?? "";
+      $("allowControl").value = String(!!cfg.allowControl);
+      $("allowGoto").value = String(cfg.allowGoto ?? true);
+      $("allowRcOverride").value = String(cfg.allowRcOverride ?? true);
+      $("allowAircraftControl").value = String(cfg.allowAircraftControl ?? false);
+      // Thrust mode (new values are THRUST_FWD_REV / THRUST_FWD_ONLY; legacy FWD_REV/FWD_ONLY accepted)
+      {
+        const raw = String(cfg.thrustMode ?? "THRUST_FWD_REV").trim().toUpperCase();
+        let norm = raw;
+        if (raw === "FWD_REV") norm = "THRUST_FWD_REV";
+        if (raw === "FWD_ONLY") norm = "THRUST_FWD_ONLY";
+        if (norm !== "THRUST_FWD_REV" && norm !== "THRUST_FWD_ONLY") norm = "THRUST_FWD_REV";
+        if ($("thrustMode")) $("thrustMode").value = norm;
+      }
+
+      // Safety / failsafe
+      const fs = cfg.failsafe || {};
+      const rc = (fs.rcOverride || {});
+      $("fsControlTimeoutMs").value = (fs.controlTimeoutMs ?? 450);
+      $("fsReissueStopMs").value = (fs.reissueStopMs ?? 500);
+      $("fsThrottleStopPwm").value = String(rc.throttleStopPwm ?? 1500);
+      $("fsSteerStopPwm").value = String(rc.steeringStopPwm ?? 1500);
+
+      $("audioDevice").value = cfg.audioDevice ?? "";
+      $("videoDevice").value = cfg.videoDevice ?? "";
+      $("videoCodec").value = (cfg.videoCodec ?? "vp8");
+      $("h264Encoder").value = (cfg.h264Encoder ?? "auto");
+      $("h264BitrateBps").value = (cfg.h264BitrateBps ?? 1500000);
+      $("webrtcStartBitrateBps").value = (cfg.webrtcStartBitrateBps ?? 800000);
+      $("webrtcMaxBitrateBps").value = (cfg.webrtcMaxBitrateBps ?? 1500000);
+      $("webrtcMinBitrateBps").value = (cfg.webrtcMinBitrateBps ?? 150000);
+
+      // Video config (snap legacy values to the supported presets)
+      const allowedRes = [
+        "320x180",
+        "640x360",
+        "854x480",
+        "960x540",
+        "1280x720",
+        "1920x1080",
+      ];
+      if ($("h264Profile")) {
+        $("h264Profile").value = (cfg.h264Profile ?? "baseline");
+      }
+
+      $("forceRelay").value =
+        (cfg.forceRelay === true) ? "true" :
+        (cfg.forceRelay === false) ? "false" : "";
+
+      $("preferMjpg").value = String(cfg.preferMjpg ?? true);
+
+      if ($("includeGpsCoords")) {
+        $("includeGpsCoords").value = String(cfg.includeGpsCoords ?? true);
+      }
+
+      const w = Number(cfg.videoWidth ?? 640);
+      const h = Number(cfg.videoHeight ?? 360);
+      const key = `${w}x${h}`;
+      $("videoResolution").value = allowedRes.includes(key) ? key : "640x360";
+
+      const allowedFps = [5, 10, 15, 20, 24, 30];
+      const fps = Number(cfg.videoFps ?? 15);
+      $("videoFps").value = allowedFps.includes(fps) ? String(fps) : "15";
+
+      // Janus URL default derived from backendUrl if missing
+      $("janusUrl").value = cfg.janusUrl ?? defaultJanusFromBackend($("backendUrl").value);
+
+      const m = parseMavlinkConnection(cfg.mavlinkConnection);
+      $("connType").value = m.type;
+      showFields(m.type);
+      if (m.type === "udp" || m.type === "tcp") {
+        $("ipHost").value = m.host || (m.type === "udp" ? "0.0.0.0" : "127.0.0.1");
+        $("ipPort").value = m.port || (m.type === "udp" ? 14600 : 5760);
+      } else {
+        $("serDev").value = m.dev || "/dev/ttyACM0";
+        $("serBaud").value = m.baud || 57600;
+      }
+
+      await loadVideoCaps();
+      updateHelpExamples();
+      updateVideoUI();
+      updateConnStringPreview();
+      setStatus("Loaded");
+    }
+
+    // Live health polling
+    async function pollHealth() {
+      try {
+        const res = await fetch("/api/health");
+        if (!res.ok) throw new Error("http " + res.status);
+        const h = await res.json();
+
+        $("stEndpoint").textContent = h.endpoint || "—";
+        $("stMode").textContent = h.mode || "—";
+        $("stArmed").textContent = (h.armed === true) ? "true" : (h.armed === false ? "false" : "—");
+
+        const hb = h.heartbeatSeen ? `OK (${(h.heartbeatAgeMs / 1000).toFixed(1)}s ago)` : "not seen";
+        $("stHB").textContent = hb;
+        $("stHB").className = h.heartbeatSeen ? "ok" : "err";
+
+        const msgAge = (h.lastMsgAgeMs != null) ? `${(h.lastMsgAgeMs / 1000).toFixed(1)}s` : "—";
+        $("stMsgAge").textContent = msgAge;
+        $("stMsgAge").className = (h.lastMsgAgeMs != null && h.lastMsgAgeMs < 2000) ? "ok" : "warn";
+
+        // Degraded banner — shown when agent is in a known error state (e.g. bad credentials)
+        const degraded = h.degraded === true;
+        const banner = $("degradedBanner");
+        if (degraded && Array.isArray(h.reasons) && h.reasons.length > 0) {
+          $("degradedMsg").textContent = h.reasons.join(" • ");
+          banner.style.display = "block";
+        } else if (degraded) {
+          $("degradedMsg").textContent = "Agent is in a degraded state — check logs for details.";
+          banner.style.display = "block";
+        } else {
+          banner.style.display = "none";
+        }
+      } catch {
+        $("stEndpoint").textContent = "—";
+        $("stMode").textContent = "—";
+        $("stArmed").textContent = "—";
+        $("stHB").textContent = "unavailable";
+        $("stHB").className = "err";
+        $("stMsgAge").textContent = "—";
+        $("stMsgAge").className = "muted";
+      } finally {
+        setTimeout(pollHealth, 2000);
+      }
+    }
+
+    async function probeControl() {
+      const el = $("probeResult");
+      el.textContent = "Probing param SYSID_MYGCS…";
+      el.className = "muted";
+      try {
+        const res = await fetch("/api/probe/param?name=SYSID_MYGCS", { method: "POST" });
+        const out = await res.json();
+        if (out.ok) {
+          el.textContent = `OK: ${out.param}=${out.value}  (round-trip ${out.elapsedMs} ms)`;
+          el.className = "ok";
+        } else {
+          el.textContent = `Failed: ${out.error || "no response"}  (after ${out.elapsedMs ?? "?"} ms)`;
+          el.className = "err";
+        }
+      } catch (e) {
+        el.textContent = "Probe error (UI ↔ agent http)";
+        el.className = "err";
+      }
+    }
+
+    async function saveAndRestart() {
+      const btn = $("btnSaveRestart");
+      btn.disabled = true;
+      setStatus("Saving…");
+
+      const type = $("connType").value;
+      const backendUrlVal = $("backendUrl").value.trim() || "http://localhost:8080";
+      const janusVal = $("janusUrl").value.trim() || defaultJanusFromBackend(backendUrlVal);
+
+      const [vw, vh] = ($("videoResolution").value || "640x360").split("x").map(Number);
+
+      const payload = {
+        mavId: $("mavId").value.trim() || "1",
+        agentGcsId: Number($("agentGcsId").value) || 252,
+        backendUrl: backendUrlVal,
+        backendWsUrl: $("backendWsUrl").value.trim() || "ws://localhost:8080/api/ws/agent",
+        janusUrl: janusVal,
+        username: $("username").value.trim(),
+        password: $("password").value,
+        allowControl: $("allowControl").value === "true",
+        allowGoto: $("allowGoto").value === "true",
+        allowRcOverride: $("allowRcOverride").value === "true",
+        allowAircraftControl: $("allowAircraftControl").value === "true",
+        includeGpsCoords: $("includeGpsCoords") ? ($("includeGpsCoords").value === "true") : true,
+        thrustMode: $("thrustMode") ? $("thrustMode").value : "THRUST_FWD_REV",
+        failsafe: {
+          controlTimeoutMs: Number($("fsControlTimeoutMs").value) || 450,
+          reissueStopMs: Number($("fsReissueStopMs").value) || 500,
+          rcOverride: {
+            throttleStopPwm: Number($("fsThrottleStopPwm").value) || 1500,
+            steeringStopPwm: Number($("fsSteerStopPwm").value) || 1500,
+          },
+        },
+        mavlinkConnection: buildMavlinkConnection({
+          type,
+          host: $("ipHost").value.trim(),
+          port: Number($("ipPort").value),
+          dev: $("serDev").value.trim(),
+          baud: Number($("serBaud").value),
+        }),
+        audioDevice: $("audioDevice").value.trim(),
+        videoDevice: $("videoDevice").value.trim() || undefined,
+        videoWidth: Number(vw) || 0,
+        videoHeight: Number(vh) || 0,
+        videoFps: Number($("videoFps").value) || 0,
+        videoCodec: $("videoCodec").value,
+        h264Encoder: $("h264Encoder").value,
+        h264BitrateBps: Number($("h264BitrateBps").value) || 0,
+        h264Profile: $("h264Profile") ? $("h264Profile").value : "baseline",
+        webrtcStartBitrateBps: Number($("webrtcStartBitrateBps").value) || 0,
+        webrtcMaxBitrateBps: Number($("webrtcMaxBitrateBps").value) || 0,
+        webrtcMinBitrateBps: Number($("webrtcMinBitrateBps").value) || 0,
+        forceRelay:
+          ($("forceRelay").value === "") ? null : ($("forceRelay").value === "true"),
+        preferMjpg: ($("preferMjpg").value === "true"),
+      };
+
+      try {
+        const res = await fetch("/api/config?restart=1", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          setStatus("Save failed: " + txt, "err");
+          btn.disabled = false;
+          return;
+        }
+        setStatus("Saved ✓ Restarting agent…", "ok");
+        setTimeout(() => location.reload(), 1500);
+      } catch (e) {
+        setStatus("Network error saving config", "err");
+        btn.disabled = false;
+      }
+    }
+
+    function updateHelpExamples() {
+      const type = $("connType").value;
+      const host = $("ipHost").value.trim() || (type === "udp" ? "0.0.0.0" : "127.0.0.1");
+      const port = Number($("ipPort").value) || (type === "udp" ? 14600 : 5760);
+
+      if (type === "udp") {
+        $("cmdSITLProxy").textContent =
+`mavproxy.py --master=tcp:127.0.0.1:5760 \\
+  --out=udp:${host}:${port} \\
+  --out=udp:127.0.0.1:14550`;
+        $("cmdLANProxy").textContent =
+`mavproxy.py --master=serial:/dev/ttyACM0:57600 \\
+  --out=udp:${host}:${port} \\
+  --out=udp:GCS_IP:14550`;
+      } else {
+        $("cmdSITLProxy").textContent =
+`mavproxy.py --master=tcp:127.0.0.1:5760 \\
+  --out=udp:127.0.0.1:14551 \\
+  --out=udp:127.0.0.1:14550`;
+        $("cmdLANProxy").textContent =
+`mavproxy.py --master=serial:/dev/ttyACM0:57600 \\
+  --out=udp:AGENT_IP:14551 \\
+  --out=udp:GCS_IP:14550`;
+      }
+    }
+
+    function updateConnStringPreview() {
+      const type = $("connType").value;
+      const host = $("ipHost").value.trim();
+      const port = $("ipPort").value.trim();
+      const dev = $("serDev").value.trim();
+      const baud = $("serBaud").value.trim();
+      let str = "";
+      if (type === "udp") str = `udp:${host || "0.0.0.0"}:${port || "14600"}`;
+      else if (type === "tcp") str = `tcpclient:${host || "127.0.0.1"}:${port || "5760"}`;
+      else str = `serial:${dev || "/dev/ttyACM0"}:${baud || "57600"}`;
+      const el = $("connStringValue");
+      if (el) el.textContent = str;
+    }
+
+    $("ipHost").addEventListener("input", updateConnStringPreview);
+    $("ipPort").addEventListener("input", updateConnStringPreview);
+    $("serDev").addEventListener("input", updateConnStringPreview);
+    $("serBaud").addEventListener("input", updateConnStringPreview);
+    $("connType").addEventListener("change", updateConnStringPreview);
+    $("backendUrl").addEventListener("input", updateLegalLink);
+
+    // ── Test toolbar ─────────────────────────────────────────────────────────
+    async function tbCommand(url, body) {
+      const el = $("tbResult");
+      el.textContent = "…";
+      el.className = "muted";
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const out = await res.json();
+        if (out.ok) {
+          el.textContent = "OK" + (out.mode ? " → " + out.mode : "");
+          el.className = "ok";
+        } else {
+          el.textContent = "Error: " + (out.error || "unknown");
+          el.className = "err";
+        }
+      } catch (e) {
+        el.textContent = "HTTP error";
+        el.className = "err";
+      }
+    }
+
+    $("btnArm").addEventListener("click", () => tbCommand("/api/mavcmd/arm", { arm: true, force: false }));
+    $("btnDisarm").addEventListener("click", () => tbCommand("/api/mavcmd/arm", { arm: false, force: false }));
+    $("btnSetMode").addEventListener("click", () => tbCommand("/api/mavcmd/mode", { mode: $("tbMode").value }));
+
+    $("btnSaveRestart").addEventListener("click", saveAndRestart);
+    $("btnProbe").addEventListener("click", probeControl);
+
+    loadConfig();
+    pollHealth();
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "mavId": "1",
+  "backendWsUrl": "wss://mavsphere.com/api/ws/agent",
+  "backendUrl": "https://mavsphere.com",
+  "janusUrl": "wss://mavsphere.com/janus",
+  "username": "your@email.com",
+  "password": "your-password",
+  "mavlinkConnection": "udp:0.0.0.0:14600",
+  "agentGcsId": 252,
+  "allowControl": true,
+  "allowAircraftControl": false
+}

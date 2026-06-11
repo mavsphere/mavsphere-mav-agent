@@ -1,0 +1,40 @@
+# -------------------------------------------------------------------
+# Default: ignore everything, then explicitly allow what Docker needs.
+# This keeps the build context tiny even if you have big artifacts.
+# -------------------------------------------------------------------
+**
+
+# Allow Docker build files
+!Dockerfile
+!.dockerignore
+
+# Allow Go module files
+!go.mod
+!go.sum
+
+# Allow Go source directories (based on your repo layout)
+!cmd/**
+!pkg/**
+!internal/**
+!mavagent/**
+
+# Optional: allow docs if you want them in the image (not required)
+!README.md
+
+# -------------------------------------------------------------------
+# Explicitly ignore common large / generated / irrelevant items
+# (redundant with **, but keeps intent clear)
+# -------------------------------------------------------------------
+.git
+.buildx-cache
+bin
+dist
+node_modules
+**/*.log
+**/*.tlog
+**/*.tlog.raw
+Agent.tar.xz
+*.tar
+*.tar.gz
+*.tgz
+*.xz
