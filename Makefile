@@ -1,5 +1,5 @@
 APP_NAME    ?= mavsphere-agent
-DOCKER_REPO ?= mavsphere/agent
+DOCKER_REPO ?= ghcr.io/mavsphere/agent
 
 # Auto timestamp (UTC) and git short SHA if available
 TIMESTAMP := $(shell date -u +%Y-%m-%d_%H%M%S)
@@ -10,7 +10,7 @@ SUFFIX ?= -$(TIMESTAMP)
 
 .PHONY: build-suffixed build-ts build-release build-debug \
         build-linux-amd64 build-linux-arm64 \
-        docker-push docker-build clean
+        docker-push docker-build docker-login clean help
 
 # ── Go builds ────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ build-linux-arm64:
 
 # ── Docker ───────────────────────────────────────────────────
 
-# Build and push multi-arch image to Docker Hub (linux/amd64 + linux/arm64)
+# Build and push multi-arch image to GHCR (linux/amd64 + linux/arm64)
 # Usage:
 #   make docker-push                          # tags with git SHA + latest
 #   make docker-push DOCKER_TAG=v1.2.0        # tags with v1.2.0 + latest
@@ -70,7 +70,27 @@ docker-build:
 		--load .
 	@echo "Built $(DOCKER_REPO):$(or $(DOCKER_TAG),$(GIT_SHA)) (local only)"
 
+# ── Auth ─────────────────────────────────────────────────────
+
+docker-login:
+	@echo "Logging in to GHCR..."
+	@echo "$${GITHUB_TOKEN}" | docker login ghcr.io -u "$${GITHUB_ACTOR}" --password-stdin
+
 # ── Housekeeping ─────────────────────────────────────────────
 
 clean:
 	rm -rf bin/
+
+help:
+	@echo ""
+	@echo "  make build-release          Local Go build with -ldflags -s -w"
+	@echo "  make build-linux-amd64      Cross-compile linux/amd64"
+	@echo "  make build-linux-arm64      Cross-compile linux/arm64 (Raspberry Pi)"
+	@echo ""
+	@echo "  make docker-push            Multi-arch build + push to GHCR"
+	@echo "  make docker-build           Single-arch local build (no push)"
+	@echo "  make docker-login           Log in to GHCR (needs GITHUB_TOKEN + GITHUB_ACTOR)"
+	@echo ""
+	@echo "  DOCKER_REPO=$(DOCKER_REPO)"
+	@echo "  DOCKER_TAG  (override: make docker-push DOCKER_TAG=v1.2.0)"
+	@echo ""
