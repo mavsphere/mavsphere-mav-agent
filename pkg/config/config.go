@@ -13,7 +13,9 @@ import (
 
 type AgentConfig struct {
 	// IDs and endpoints
-	MavID        string `json:"mavId"`        // e.g. "1"
+	// MavID is the backend MAV this agent is paired to.
+	// Empty on first boot — filled automatically by the pairing flow.
+	MavID        string `json:"mavId,omitempty"`
 	BackendWsURL string `json:"backendWsUrl"` // e.g. ws://localhost:8080/api/ws/agent
 	BackendURL   string `json:"backendUrl"`   // e.g. http://localhost:8080 (used by auth/REST)
 	JanusURL     string `json:"janusUrl"`     // e.g. ws://localhost:8188/janus or wss://mavsphere.com/janus
@@ -25,8 +27,12 @@ type AgentConfig struct {
 	ForceRelayOverride *bool `json:"forceRelay,omitempty"`
 
 	// Auth (used by pkg/auth)
-	Username string `json:"username"`
-	Password string `json:"password"`
+	//
+	// Set AgentToken to a token obtained from the MavSphere UI
+	// (Manage MAV → Agent Tokens → Create), or leave empty and use the
+	// pairing flow, which fills this in automatically. No password is ever
+	// stored on device.
+	AgentToken string `json:"agentToken,omitempty"`
 
 	// MAVLink transport
 	MavlinkConnection string `json:"mavlinkConnection"` // serial:/dev/...:57600 | udpclient:host:port | tcpclient:host:port
@@ -161,9 +167,6 @@ func LoadConfig(path string) (*AgentConfig, error) {
 func applyDefaults(cfg *AgentConfig) {
 	if cfg.AgentGcsID == 0 {
 		cfg.AgentGcsID = 255
-	}
-	if strings.TrimSpace(cfg.MavID) == "" {
-		cfg.MavID = "1"
 	}
 	if strings.TrimSpace(cfg.BackendWsURL) == "" {
 		cfg.BackendWsURL = "ws://localhost:8080/api/ws/agent"
@@ -443,6 +446,49 @@ func SaveConfig(path string, cfg *AgentConfig) error {
 	if cfg.Failsafe.RcOverride.SteeringStopPwm < 1000 || cfg.Failsafe.RcOverride.SteeringStopPwm > 2000 {
 		return fmt.Errorf("failsafe.rcOverride.steeringStopPwm out of range (expected 1000..2000)")
 	}
+
+	tmp := path + ".tmp"
+	b, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("mk parent: %w", err)
+	}
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("write tmp: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("rename: %w", err)
+	}
+
+	mu.Lock()
+	global = cfg
+	mu.Unlock()
+	return nil
+}
+
+// SaveConfigUnvalidated persists cfg to disk after applying defaults, but
+// WITHOUT running the strict field validation in SaveConfig (video bitrate
+// ranges, resolution allow-list, failsafe PWM ranges, etc).
+//
+// It exists for the pairing flow (pkg/auth/pairing.go), which only needs to
+// reliably persist agentToken/mavId and clear legacy username/password. A
+// pairing handshake must never be discarded just because some unrelated,
+// already-on-disk setting (e.g. a stale h264BitrateBps left over from a
+// config template) happens to fail validation — that would silently abort
+// pairing while the backend, which already recorded the handshake as
+// fulfilled, has no way of knowing the local write never landed.
+//
+// Regular config edits via the web UI's PUT /api/config should continue to
+// use SaveConfig so that human-entered values are still checked.
+func SaveConfigUnvalidated(path string, cfg *AgentConfig) error {
+	if cfg == nil {
+		return errors.New("nil cfg")
+	}
+	applyDefaults(cfg)
 
 	tmp := path + ".tmp"
 	b, err := json.MarshalIndent(cfg, "", "  ")

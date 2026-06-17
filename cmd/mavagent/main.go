@@ -46,9 +46,28 @@ func main() {
 	conf := cfg.GetConfig()
 
 	log.Printf("[CFG] MavID=%s  AllowControl=%v  AgentGcsID=%d", conf.MavID, conf.AllowControl, conf.AgentGcsID)
-	log.Printf("[CFG] BackendWS=%s  BackendHTTP=%s  Username=%s", conf.BackendWsURL, conf.BackendURL, conf.Username)
+	log.Printf("[CFG] BackendWS=%s  BackendHTTP=%s", conf.BackendWsURL, conf.BackendURL)
 	log.Printf("[CFG] MAVLink=%s", conf.MavlinkConnection)
 	log.Printf("[CFG] JanusURL=%s", conf.JanusURL)
+
+	// ── Web UI — started before pairing so the pairing code is visible ────────
+	ui := webui.Start("0.0.0.0:8090", cfgPath)
+
+	// ── Pairing — must run before token acquisition ──────────────────────────
+	// The web UI is already running so it can display the pairing code.
+	if conf.AgentToken == "" {
+		log.Printf("[pair] No agent token in config — entering pairing mode")
+		if err := auth.RunPairingLoop(ctx, cfgPath); err != nil {
+			log.Printf("[pair] Pairing failed or was cancelled: %v", err)
+			return
+		}
+		// Reload after pairing wrote token + mavId.
+		if _, err := cfg.LoadConfig(cfgPath); err != nil {
+			log.Printf("reload config after pairing: %v", err)
+			return
+		}
+		conf = cfg.GetConfig()
+	}
 
 	mavId := conf.MavID
 
@@ -76,7 +95,6 @@ func main() {
 	}()
 
 	// Web UI
-	ui := webui.Start("0.0.0.0:8090", cfgPath)
 	ui.SetPreRestart(func() {
 		log.Println("🔁 Pre-restart: stopping stream + closing MAVLink (with timeout)")
 
@@ -123,7 +141,7 @@ func main() {
 	})
 
 	// Auth
-	token := getTokenWithRetry(ctx, state)
+	token := getTokenWithRetry(ctx, state, cfgPath)
 	if token == "" {
 		log.Printf("❌ Could not obtain auth token (canceled?)")
 		return
@@ -183,15 +201,6 @@ func main() {
 	}
 	mav = ml
 
-	// Attach health provider — wraps mav.Health() with agent-level degraded/reasons state
-	// so the web UI shows errors (e.g. bad credentials) that live above the MAVLink layer.
-	ui.AttachMavlink(func() map[string]any {
-		h := mav.Health()
-		h["degraded"] = state.degraded
-		h["reasons"] = state.reasons
-		return h
-	}, mav.ProbeParam)
-
 	ui.AttachCommander(mav)
 
 	// Backend STOMP (self-reconnecting)
@@ -206,6 +215,18 @@ func main() {
 			state.reasons = nil
 		}
 	}
+
+	// Attach health provider — wraps mav.Health() with agent-level degraded/reasons
+	// state and live STOMP connectivity so the web UI's "Paired" indicator reflects
+	// real connection status rather than just the presence of a stored agent token.
+	ui.AttachMavlink(func() map[string]any {
+		h := mav.Health()
+		h["connected"] = session.IsConnected()
+		h["degraded"] = state.degraded
+		h["reasons"] = state.reasons
+		return h
+	}, mav.ProbeParam)
+
 	go session.Start()
 	waitWithTimeout(ctx, session.ReadyChan, 30*time.Second, "STOMP ready")
 
@@ -347,11 +368,11 @@ func waitWithTimeout(ctx context.Context, ch <-chan struct{}, d time.Duration, n
 }
 
 // getTokenWithRetry attempts login with appropriate backoff strategy per error type:
-//   - ErrBadCredentials (401/403): stop retrying — wrong creds will never succeed and
-//     hammering the endpoint locks the account. Park and watch for config changes.
+//   - ErrTokenRevoked: backend explicitly rejected the token. Clear it and restart
+//     into pairing mode rather than retrying.
 //   - ErrRateLimited (429): back off for the duration specified by the backend, then retry.
 //   - Transient errors (network, 5xx): exponential backoff 2s → 60s.
-func getTokenWithRetry(ctx context.Context, state *agentState) string {
+func getTokenWithRetry(ctx context.Context, state *agentState, cfgPath string) string {
 	backoff := 2 * time.Second
 	const maxBackoff = 60 * time.Second
 	rand.Seed(time.Now().UnixNano()) //nolint:staticcheck
@@ -364,24 +385,16 @@ func getTokenWithRetry(ctx context.Context, state *agentState) string {
 			return token
 		}
 
-		if errors.Is(err, auth.ErrBadCredentials) {
-			// Wrong credentials — retrying will not help and will lock the account.
-			// Set degraded state so the web UI shows the error, then park here.
-			state.setDegraded("bad credentials — check username and password in config (http://<pi>:8090), then restart the agent")
-			log.Printf("❌ AUTH FAILED — bad credentials. Fix username/password via the config UI (http://<pi>:8090) and restart. Not retrying.")
-			for {
-				select {
-				case <-ctx.Done():
-					return ""
-				case <-time.After(60 * time.Second):
-					// Re-check: if credentials were changed via the web UI, restart.
-					newConf := cfg.GetConfig()
-					if newConf.Username != cfg.GetConfig().Username || newConf.Password != cfg.GetConfig().Password {
-						log.Printf("[auth] credentials changed in config — restarting to apply")
-						os.Exit(0)
-					}
-				}
+		if errors.Is(err, auth.ErrTokenRevoked) {
+			// Backend explicitly rejected the token as invalid or revoked.
+			// Clear agentToken so the agent enters pairing mode on restart.
+			log.Printf("[auth] agent token revoked — clearing token and restarting into pairing mode")
+			conf := cfg.GetConfig()
+			conf.AgentToken = ""
+			if saveErr := cfg.SaveConfig(cfgPath, conf); saveErr != nil {
+				log.Printf("[auth] failed to clear token from config: %v", saveErr)
 			}
+			os.Exit(0)
 		}
 
 		if errors.Is(err, auth.ErrRateLimited) {

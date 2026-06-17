@@ -1,3 +1,15 @@
+// Package auth handles backend authentication for the mav-agent.
+//
+// The agent authenticates using a pre-issued agent token (set via the
+// pairing flow into the agentToken field in config.json) by calling
+// POST /api/agent/token-login. No password is ever stored on the device.
+//
+// Error classification for 401 responses:
+//
+//	ErrTokenRevoked  — backend explicitly says token is invalid or revoked.
+//	                   Caller should clear the token and enter pairing mode.
+//	transient error  — 401 without explicit revocation body (e.g. clock skew).
+//	                   Caller should retry with normal backoff, not clear token.
 package auth
 
 import (
@@ -7,14 +19,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/mavsphere/mavsphere-agent-go/pkg/config"
 )
 
-type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+// ── Request/response types ────────────────────────────────────────────────────
+
+type TokenLoginRequest struct {
+	AgentToken string `json:"agentToken"`
+	MavID      string `json:"mavId"`
 }
 
 type LoginResponse struct {
@@ -29,18 +44,18 @@ type rateLimitResponse struct {
 	BlockedBy         string `json:"blockedBy"` // "username" | "ip" | "both"
 }
 
-// ErrBadCredentials is returned when the server explicitly rejects the credentials
-// (HTTP 401 or 403). The agent should NOT retry automatically — this requires
-// the user to fix the config and restart. Retrying hammers the login rate
-// limiter and locks the account for legitimate users.
-var ErrBadCredentials = errors.New("bad credentials")
+// ── Sentinel errors ───────────────────────────────────────────────────────────
+
+// ErrTokenRevoked is returned when the backend explicitly rejects an agent token
+// as invalid or revoked (401 with a body containing "invalid" or "revoked").
+// The caller should clear the token from config and restart into pairing mode.
+var ErrTokenRevoked = errors.New("agent token revoked or invalid")
 
 // ErrRateLimited is returned when the server returns 429 (Too Many Requests).
 // Use AsRateLimit to extract the wait duration and reason.
 var ErrRateLimited = errors.New("rate limited")
 
-// RateLimitError carries the parsed backend rate-limit details so callers can
-// display an accurate countdown and decide whether to retry.
+// RateLimitError carries the parsed backend rate-limit details.
 type RateLimitError struct {
 	RetryAfter time.Duration
 	BlockedBy  string // "username" | "ip" | "both"
@@ -65,13 +80,23 @@ func AsRateLimit(err error) (*RateLimitError, bool) {
 	return nil, false
 }
 
+// ── Login ─────────────────────────────────────────────────────────────────────
+
+// Login authenticates the agent against the backend using its agent token
+// and returns a JWT for use in subsequent STOMP/WS connections.
 func Login() (string, error) {
 	cfg := config.GetConfig()
-	loginURL := fmt.Sprintf("%s/api/auth/login", cfg.BackendURL)
+	return loginWithToken(cfg)
+}
 
-	reqBody := LoginRequest{
-		Username: cfg.Username,
-		Password: cfg.Password,
+// loginWithToken authenticates using a pre-issued agent token.
+// Calls POST /api/agent/token-login.
+func loginWithToken(cfg *config.AgentConfig) (string, error) {
+	url := fmt.Sprintf("%s/api/agent/token-login", cfg.BackendURL)
+
+	reqBody := TokenLoginRequest{
+		AgentToken: cfg.AgentToken,
+		MavID:      cfg.MavID,
 	}
 
 	data, err := json.Marshal(reqBody)
@@ -80,7 +105,7 @@ func Login() (string, error) {
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Post(loginURL, "application/json", bytes.NewBuffer(data))
+	resp, err := client.Post(url, "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		return "", err
 	}
@@ -90,35 +115,45 @@ func Login() (string, error) {
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		// success — fall through
+		// fall through to parse JWT
 
-	case http.StatusUnauthorized, http.StatusForbidden:
-		// Wrong credentials — don't retry, don't hammer the rate limiter.
-		return "", ErrBadCredentials
+	case http.StatusUnauthorized:
+		// 401 — could be:
+		//   a) token explicitly revoked/invalid  → ErrTokenRevoked (clear + re-pair)
+		//   b) transient auth issue (clock skew) → transient error (retry with backoff)
+		//
+		// Distinguish by inspecting the response body. The backend returns a plain
+		// string message like "Invalid or revoked agent token" on (a).
+		bodyStr := strings.ToLower(string(body))
+		if strings.Contains(bodyStr, "invalid") || strings.Contains(bodyStr, "revoked") {
+			return "", ErrTokenRevoked
+		}
+		// Transient — do not clear token, let the caller retry with backoff.
+		return "", fmt.Errorf("token login 401 (transient): %s", string(body))
+
+	case http.StatusForbidden:
+		// 403 — access denied (e.g. owner lost primary_pilot role). Treat as permanent.
+		return "", ErrTokenRevoked
 
 	case http.StatusTooManyRequests:
-		// Parse the structured backend response for wait time and reason.
-		rle := parseRateLimitBody(body, resp.Header.Get("Retry-After"))
-		return "", rle
+		return "", parseRateLimitBody(body, resp.Header.Get("Retry-After"))
 
 	default:
-		return "", fmt.Errorf("login failed HTTP %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("token login failed HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
 	var loginResp LoginResponse
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&loginResp); err != nil {
 		return "", err
 	}
-
 	if loginResp.Token == "" {
-		return "", errors.New("login returned empty token")
+		return "", errors.New("token login returned empty JWT")
 	}
 
 	return loginResp.Token, nil
 }
 
 // parseRateLimitBody tries to extract a structured RateLimitError from the 429 body.
-// Falls back to a conservative 15-minute wait if the body cannot be parsed.
 func parseRateLimitBody(body []byte, retryAfterHeader string) *RateLimitError {
 	const fallbackWait = 15 * time.Minute
 
@@ -131,7 +166,6 @@ func parseRateLimitBody(body []byte, retryAfterHeader string) *RateLimitError {
 		}
 	}
 
-	// Try Retry-After header as fallback (RFC 7231 — integer seconds)
 	if retryAfterHeader != "" {
 		var secs int64
 		if _, err := fmt.Sscanf(retryAfterHeader, "%d", &secs); err == nil && secs > 0 {

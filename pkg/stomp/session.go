@@ -154,6 +154,14 @@ func (s *Session) getConn() *stomp.Conn {
 	return c
 }
 
+// IsConnected reports whether the session currently holds a live STOMP
+// connection to the backend. Used by the web UI's /api/health endpoint so
+// the "Paired" indicator reflects real connectivity rather than just the
+// presence of a stored agent token.
+func (s *Session) IsConnected() bool {
+	return s.getConn() != nil
+}
+
 func (s *Session) setPolicy(p ControlPolicy) {
 	s.policyMu.Lock()
 	s.policy = p
@@ -386,13 +394,14 @@ func (s *Session) Start() {
 
 					tok, terr := auth.Login()
 					if terr != nil {
-						if errors.Is(terr, auth.ErrBadCredentials) {
-							log.Printf("❌ Auth re-login failed: bad credentials — not retrying STOMP (fix config and restart)")
-							s.setDegraded(true, "bad credentials — check username and password in config (http://<pi>:8090) and restart")
-							// Park indefinitely: wrong credentials will never succeed.
-							for {
-								time.Sleep(60 * time.Second)
-							}
+						if errors.Is(terr, auth.ErrTokenRevoked) {
+							log.Printf("❌ Auth re-login failed: token revoked — restarting into pairing mode")
+							s.setDegraded(true, "agent token revoked — restarting to re-pair")
+							// Don't duplicate the clear-token-and-save logic here; just exit
+							// and let the next startup's auth.Login() call hit the same
+							// ErrTokenRevoked path in main.go, which clears the token and
+							// restarts into pairing.
+							os.Exit(0)
 						}
 						if errors.Is(terr, auth.ErrRateLimited) {
 							wait := 15 * time.Minute

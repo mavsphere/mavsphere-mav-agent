@@ -83,6 +83,44 @@
     .legal-banner li {
       margin: 4px 0;
     }
+
+    /* ── Pairing banner ──────────────────────────────────────────────────── */
+    .pair-banner {
+      display: none;
+      margin-bottom: 20px;
+      padding: 24px;
+      background: linear-gradient(135deg, #0d2347 0%, #0a1a35 100%);
+      border: 2px solid #2e5aff;
+      border-radius: 16px;
+      text-align: center;
+    }
+    .pair-banner.visible { display: block; }
+    .pair-banner h2 { margin: 0 0 6px; font-size: 18px; color: #7faaff; }
+    .pair-banner p  { margin: 6px 0; color: #a9c0ff; font-size: 13px; line-height: 1.6; }
+    .pair-code-display {
+      display: inline-block;
+      margin: 16px 0;
+      padding: 14px 32px;
+      background: #060f1f;
+      border: 2px solid #2e5aff;
+      border-radius: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: 10px;
+      color: #ffffff;
+      user-select: all;
+      cursor: text;
+    }
+    .pair-steps {
+      margin: 14px auto 0;
+      max-width: 520px;
+      text-align: left;
+      font-size: 12px;
+      color: #8a9dbf;
+      line-height: 2;
+    }
+    .pair-steps li { margin-left: 16px; }
   </style>
 </head>
 <body>
@@ -110,9 +148,53 @@
     <!-- STATUS -->
     <h2>Status</h2>
 
+
+  <!-- ── PAIRING BANNER ─────────────────────────────────────────────────── -->
+  <div id="pairBanner" class="pair-banner">
+    <h2>🔗 Agent not connected</h2>
+    <p>The agent is not connected to MavSphere. Pair it below to continue.</p>
+
+    <div id="pairStartBtn">
+      <p style="font-size:13px;color:#a9c0ff;margin:12px 0 8px;">
+        To pair without entering credentials, click below. The agent will restart and display a pairing code.
+      </p>
+      <button onclick="startPairing()" style="padding:10px 24px;border-radius:8px;border:1px solid #2e5aff;background:#1a2b52;color:#7faaff;cursor:pointer;font-size:14px;font-weight:600;">
+        Start pairing
+      </button>
+    </div>
+
+    <div id="pairCodeBlock" style="display:none;">
+      <p style="font-size:13px;color:#a9c0ff;margin:12px 0 4px;">Enter this code in MavSphere → Manage MAVs → Agent Tokens:</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
+        <div class="pair-code-display" id="pairCodeDisplay">——————</div>
+        <button id="pairCodeCopyBtn" onclick="copyPairingCode()" title="Copy pairing code" style="padding:10px 16px;border-radius:8px;border:1px solid #2d4780;background:#1a2b52;color:#a9c0ff;cursor:pointer;font-size:13px;white-space:nowrap;">
+          📋 Copy
+        </button>
+      </div>
+      <p style="font-size:12px;color:#6a80ac;">Code expires after 5 minutes of inactivity.</p>
+      <ol class="pair-steps">
+        <li>In MavSphere, go to <strong>Manage MAVs → Agent Tokens</strong></li>
+        <li>Click <strong>Enter pairing code</strong></li>
+        <li>Type the code shown above and confirm</li>
+        <li>The agent will configure itself and reconnect automatically</li>
+      </ol>
+      <button onclick="triggerRepair()" style="margin-top:12px;padding:8px 18px;border-radius:8px;border:1px solid #2d4780;background:#1a2b52;color:#a9c0ff;cursor:pointer;font-size:13px;">
+        Generate new code
+      </button>
+    </div>
+
+    <p id="pairPairedMsg" style="display:none;margin-top:12px;font-size:13px;color:#7cf58a;">✓ Pairing confirmed — agent is configuring itself…</p>
+  </div>
+
     <div id="degradedBanner" style="display:none;margin-bottom:12px;padding:12px 16px;background:#2a1010;border:1px solid #ff6b6b;border-radius:10px;color:#ff8b8b;font-size:13px;line-height:1.6;">
       <strong>⚠ Agent error</strong><br>
       <span id="degradedMsg"></span>
+    </div>
+
+    <!-- Paired indicator — shown when connected -->
+    <div id="stPairedItem" style="display:none;margin-bottom:12px;padding:10px 14px;background:#0a1f0a;border:1px solid #4a9e4a;border-radius:10px;font-size:13px;color:#7cf58a;align-items:center;justify-content:space-between;">
+      <span>✓ Paired to MAV <strong id="stPairedId"></strong></span>
+      <button onclick="unpairAgent()" style="padding:3px 12px;border-radius:6px;border:1px solid #ff6b6b;background:transparent;color:#ff8b8b;cursor:pointer;font-size:11px;">Unpair</button>
     </div>
 
     <div class="grid-2">
@@ -185,16 +267,6 @@
       </div>
       <div>
         <!-- spacer -->
-      </div>
-    </div>
-    <div class="row">
-      <div>
-        <label for="username">Username</label>
-        <input id="username" autocomplete="username" />
-      </div>
-      <div>
-        <label for="password">Password</label>
-        <input id="password" type="password" autocomplete="current-password" />
       </div>
     </div>
 
@@ -518,7 +590,7 @@
         <div style="font-size:14px; font-weight:600; color:#7cf58a; margin-bottom:8px;">&#x1F680; New here? Start with the one-line installer</div>
         <p class="muted" style="margin:0 0 8px;">If you are connecting a Raspberry Pi 4B and an ArduPilot flight controller to MavSphere for the first time, run this on the Pi:</p>
         <code>curl -fsSL https://mavsphere.com/downloads/setup_pi.sh | sudo bash</code>
-        <p class="muted" style="margin:8px 0 0;">This installs Docker, MAVProxy, and the agent as systemd services that start on boot. Then come back here to set your MAV ID, username, password, and serial port (see steps below).</p>
+        <p class="muted" style="margin:8px 0 0;">This installs Docker, MAVProxy, and the agent as systemd services that start on boot. Then come back here, pair the agent using the code shown above, and set your serial port (see steps below).</p>
         <p class="muted" style="margin:8px 0 0;">For the full narrative setup guide including wiring diagrams, ArduPilot parameters, and troubleshooting: <a href="https://mavsphere.com/operators/setup" target="_blank" rel="noopener noreferrer" style="color:#7cf58a;">mavsphere.com/operators/setup</a></p>
       </div>
 
@@ -567,7 +639,7 @@ param write</code>
       <ul>
         <li>Mode updates &#x2014; MAVLink is flowing correctly.</li>
         <li>Mode blank &#x2014; check MAVProxy is running and the port is correct.</li>
-        <li>Backend disconnected &#x2014; check MAV ID, username, and password above.</li>
+        <li>Backend disconnected &#x2014; make sure the agent is paired (see the pairing banner above) and the backend URL is correct.</li>
       </ul>
 
       <hr style="border:none; border-top:1px solid #1f2b45; margin:20px 0;" />
@@ -851,8 +923,6 @@ param write</code>
       $("backendUrl").value = cfg.backendUrl ?? "http://localhost:8080";
       updateLegalLink();
       $("backendWsUrl").value = cfg.backendWsUrl ?? "ws://localhost:8080/api/ws/agent";
-      $("username").value = cfg.username ?? "";
-      $("password").value = cfg.password ?? "";
       $("allowControl").value = String(!!cfg.allowControl);
       $("allowGoto").value = String(cfg.allowGoto ?? true);
       $("allowRcOverride").value = String(cfg.allowRcOverride ?? true);
@@ -956,8 +1026,22 @@ param write</code>
         $("stMsgAge").textContent = msgAge;
         $("stMsgAge").className = (h.lastMsgAgeMs != null && h.lastMsgAgeMs < 2000) ? "ok" : "warn";
 
-        // Degraded banner — shown when agent is in a known error state (e.g. bad credentials)
+        // Degraded banner — shown when agent is in a known error state (e.g. revoked token)
         const degraded = h.degraded === true;
+        // Update pairing banner based on connection state
+        const wsOk = h.connected === true;
+        updatePairingBanner(wsOk && h.degraded !== true);
+
+        // Paired indicator
+        const pairedItem = $("stPairedItem");
+        const conf = await fetch("/api/config").then(r=>r.json()).catch(()=>({}));
+        if (wsOk && conf.mavId) {
+          $("stPairedId").textContent = conf.mavId;
+          pairedItem.style.display = "flex";
+        } else {
+          pairedItem.style.display = "none";
+        }
+
         const banner = $("degradedBanner");
         if (degraded && Array.isArray(h.reasons) && h.reasons.length > 0) {
           $("degradedMsg").textContent = h.reasons.join(" • ");
@@ -1006,6 +1090,15 @@ param write</code>
       btn.disabled = true;
       setStatus("Saving…");
 
+      // Re-read the current on-disk config so fields with no form control of
+      // their own (notably agentToken, set by the pairing flow) are carried
+      // forward unchanged rather than silently omitted from the payload below
+      // and reset to "" — which previously forced the agent back into pairing
+      // mode on every "Save & Restart", even when already correctly paired.
+      const current = await fetch("/api/config", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => ({}));
+
       const type = $("connType").value;
       const backendUrlVal = $("backendUrl").value.trim() || "http://localhost:8080";
       const janusVal = $("janusUrl").value.trim() || defaultJanusFromBackend(backendUrlVal);
@@ -1014,18 +1107,18 @@ param write</code>
 
       const payload = {
         mavId: $("mavId").value.trim() || "1",
+        agentToken: current.agentToken ?? "",
         agentGcsId: Number($("agentGcsId").value) || 252,
         backendUrl: backendUrlVal,
         backendWsUrl: $("backendWsUrl").value.trim() || "ws://localhost:8080/api/ws/agent",
         janusUrl: janusVal,
-        username: $("username").value.trim(),
-        password: $("password").value,
         allowControl: $("allowControl").value === "true",
         allowGoto: $("allowGoto").value === "true",
         allowRcOverride: $("allowRcOverride").value === "true",
         allowAircraftControl: $("allowAircraftControl").value === "true",
         includeGpsCoords: $("includeGpsCoords") ? ($("includeGpsCoords").value === "true") : true,
         thrustMode: $("thrustMode") ? $("thrustMode").value : "THRUST_FWD_REV",
+        videoPixFmt: current.videoPixFmt ?? "",
         failsafe: {
           controlTimeoutMs: Number($("fsControlTimeoutMs").value) || 450,
           reissueStopMs: Number($("fsReissueStopMs").value) || 500,
@@ -1156,6 +1249,157 @@ param write</code>
 
     $("btnSaveRestart").addEventListener("click", saveAndRestart);
     $("btnProbe").addEventListener("click", probeControl);
+
+
+    // ── Pairing banner logic ─────────────────────────────────────────────────
+    // Banner shows whenever agent is not healthy. Shows pair code if pairing
+    // loop is running, otherwise offers a Start pairing button.
+
+    let pairingActive = false;
+
+    async function refreshPairCode() {
+      try {
+        const res = await fetch('/api/pair-code');
+        if (!res.ok) return '';
+        const data = await res.json();
+        return data.pairingCode || '';
+      } catch { return ''; }
+    }
+
+    // Copies the pairing code to the clipboard. The agent UI is typically
+    // served over plain http:// on a LAN IP rather than https:// or
+    // localhost, and navigator.clipboard requires a "secure context" — so on
+    // many browsers it's simply unavailable here. Fall back to the legacy
+    // execCommand('copy') approach (via a temporary, focused, selected input)
+    // in that case, which still works over plain HTTP.
+    async function copyPairingCode() {
+      const code = ($('pairCodeDisplay').textContent || '').trim();
+      if (!code || code === '——————' || code === '……') return;
+
+      const btn = $('pairCodeCopyBtn');
+      const showCopied = () => {
+        if (!btn) return;
+        const original = btn.textContent;
+        btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = original; }, 1500);
+      };
+
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(code);
+          showCopied();
+          return;
+        }
+        throw new Error('clipboard API unavailable');
+      } catch {
+        try {
+          const tmp = document.createElement('textarea');
+          tmp.value = code;
+          tmp.style.position = 'fixed';
+          tmp.style.opacity = '0';
+          document.body.appendChild(tmp);
+          tmp.focus();
+          tmp.select();
+          document.execCommand('copy');
+          document.body.removeChild(tmp);
+          showCopied();
+        } catch {
+          if (btn) btn.textContent = 'Select code above';
+        }
+      }
+    }
+
+    async function updatePairingBanner(agentConnected) {
+      const banner    = $('pairBanner');
+      const display   = $('pairCodeDisplay');
+      const pairedMsg = $('pairPairedMsg');
+      const startBtn  = $('pairStartBtn');
+      const codeBlock = $('pairCodeBlock');
+
+      if (agentConnected) {
+        if (pairingActive) {
+          pairedMsg.style.display = 'block';
+          pairingActive = false;
+          setTimeout(() => {
+            banner.classList.remove('visible');
+            pairedMsg.style.display = 'none';
+            loadConfig();
+          }, 2500);
+        } else {
+          banner.classList.remove('visible');
+        }
+        return;
+      }
+
+      banner.classList.add('visible');
+      pairedMsg.style.display = 'none';
+
+      const code = await refreshPairCode();
+      if (code) {
+        pairingActive = true;
+        display.textContent = code;
+        codeBlock.style.display = 'block';
+        startBtn.style.display  = 'none';
+      } else {
+        if (pairingActive) pairingActive = false;
+        codeBlock.style.display = 'none';
+        startBtn.style.display  = 'block';
+      }
+    }
+
+    async function startPairing() {
+      try {
+        const res = await fetch('/api/config', { cache: 'no-store' });
+        if (!res.ok) { alert('Could not load config.'); return; }
+        const cfg = await res.json();
+        delete cfg._revision;
+        cfg.agentToken = '';
+        const revision = res.headers.get('X-Config-Revision') || '';
+        const headers  = { 'Content-Type': 'application/json' };
+        if (revision) headers['X-Config-Revision'] = revision;
+        const putRes = await fetch('/api/config?restart=1', {
+          method: 'PUT', headers, body: JSON.stringify(cfg)
+        });
+        if (putRes.ok) {
+          $('pairStartBtn').style.display  = 'none';
+          $('pairCodeDisplay').textContent = '……';
+          $('pairCodeBlock').style.display = 'block';
+          setTimeout(() => location.reload(), 2500);
+        } else {
+          alert('Failed to initiate pairing: ' + await putRes.text());
+        }
+      } catch(e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function triggerRepair() { await startPairing(); }
+
+    async function unpairAgent() {
+      if (!confirm("Unpair this agent? It will restart and show a new pairing code.")) return;
+      try {
+        const res = await fetch("/api/config", { cache: "no-store" });
+        if (!res.ok) { alert("Could not load config."); return; }
+        const cfg = await res.json();
+        delete cfg._revision;
+        cfg.agentToken = "";
+        cfg.mavId      = "";
+        const revision = res.headers.get("X-Config-Revision") || "";
+        const headers  = { "Content-Type": "application/json" };
+        if (revision) headers["X-Config-Revision"] = revision;
+        const putRes = await fetch("/api/config?restart=1", {
+          method: "PUT", headers, body: JSON.stringify(cfg)
+        });
+        if (putRes.ok) {
+          $("stPairedItem").style.display = "none";
+          setTimeout(() => location.reload(), 2000);
+        } else {
+          alert("Unpair failed: " + await putRes.text());
+        }
+      } catch(e) {
+        alert("Error: " + e.message);
+      }
+    }
 
     loadConfig();
     pollHealth();

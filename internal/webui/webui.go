@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mavsphere/mavsphere-agent-go/pkg/auth"
 	"github.com/mavsphere/mavsphere-agent-go/pkg/config"
 	"github.com/mavsphere/mavsphere-agent-go/pkg/device"
 )
@@ -132,7 +133,6 @@ func Start(addr, cfgPath string) *Server {
 			incoming.BackendWsURL = strings.TrimSpace(incoming.BackendWsURL)
 			incoming.BackendURL = strings.TrimSpace(incoming.BackendURL)
 			incoming.MavID = strings.TrimSpace(incoming.MavID)
-			incoming.Username = strings.TrimSpace(incoming.Username)
 			incoming.JanusURL = strings.TrimSpace(incoming.JanusURL)
 			incoming.ThrustMode = strings.TrimSpace(incoming.ThrustMode)
 
@@ -213,6 +213,18 @@ func Start(addr, cfgPath string) *Server {
 	})
 
 	// Health snapshot (MAVLink + agent state)
+	// ── /api/pair-code ───────────────────────────────────────────────────────
+	// Returns the current pairing code if the agent is in pairing mode.
+	mux.HandleFunc("/api/pair-code", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", "GET")
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		code := auth.GetPairingCode()
+		writeJSON(w, map[string]any{"pairingCode": code})
+	})
+
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", "GET")
