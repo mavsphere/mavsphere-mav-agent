@@ -29,8 +29,7 @@ func TestLoadConfig_AircraftControlDefaultsFalse(t *testing.T) {
 		"backendWsUrl": "wss://mavsphere.com/api/ws/agent",
 		"backendUrl": "https://mavsphere.com",
 		"janusUrl": "wss://mavsphere.com/janus",
-		"username": "test@example.com",
-		"password": "test",
+		"agentToken": "test-token",
 		"mavlinkConnection": "udp:0.0.0.0:14600",
 		"allowControl": true
 	}`)
@@ -51,8 +50,7 @@ func TestLoadConfig_RcOverrideDefaultsFalse(t *testing.T) {
 		"backendWsUrl": "wss://mavsphere.com/api/ws/agent",
 		"backendUrl": "https://mavsphere.com",
 		"janusUrl": "wss://mavsphere.com/janus",
-		"username": "test@example.com",
-		"password": "test",
+		"agentToken": "test-token",
 		"mavlinkConnection": "udp:0.0.0.0:14600",
 		"allowControl": true
 	}`)
@@ -72,8 +70,7 @@ func TestLoadConfig_AgentGcsIDDefault(t *testing.T) {
 		"backendWsUrl": "wss://mavsphere.com/api/ws/agent",
 		"backendUrl": "https://mavsphere.com",
 		"janusUrl": "wss://mavsphere.com/janus",
-		"username": "test@example.com",
-		"password": "test"
+		"agentToken": "test-token"
 	}`)
 
 	cfg, err := LoadConfig(path)
@@ -85,21 +82,21 @@ func TestLoadConfig_AgentGcsIDDefault(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_MavIDDefault(t *testing.T) {
+func TestLoadConfig_MavIDDefaultsEmptyUntilPaired(t *testing.T) {
+	// MavID has no default — it's left empty on first boot and filled in
+	// automatically by the pairing flow (see pkg/auth/pairing.go).
 	path := writeConfig(t, `{
 		"backendWsUrl": "wss://mavsphere.com/api/ws/agent",
 		"backendUrl": "https://mavsphere.com",
-		"janusUrl": "wss://mavsphere.com/janus",
-		"username": "test@example.com",
-		"password": "test"
+		"janusUrl": "wss://mavsphere.com/janus"
 	}`)
 
 	cfg, err := LoadConfig(path)
 	if err != nil {
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
-	if cfg.MavID != "1" {
-		t.Errorf("MavID default should be \"1\", got %q", cfg.MavID)
+	if cfg.MavID != "" {
+		t.Errorf("MavID should be empty until paired, got %q", cfg.MavID)
 	}
 }
 
@@ -109,8 +106,7 @@ func TestLoadConfig_ExplicitValuesNotOverriddenByDefaults(t *testing.T) {
 		"backendWsUrl": "wss://mavsphere.com/api/ws/agent",
 		"backendUrl": "https://mavsphere.com",
 		"janusUrl": "wss://mavsphere.com/janus",
-		"username": "test@example.com",
-		"password": "test",
+		"agentToken": "test-token",
 		"agentGcsId": 252,
 		"allowControl": true,
 		"allowRcOverride": true,
